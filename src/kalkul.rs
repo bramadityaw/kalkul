@@ -9,6 +9,8 @@ pub enum Error {
     ParseError,
     NotEnoughElements,
     UnknownOperator,
+
+    StackUnderflow,
 }
 
 impl From<ParseCharError> for Error {
@@ -104,8 +106,8 @@ impl Evaluator {
         }
     }
 
-    pub fn evaluate(&mut self) -> Result<u8> {
-        match (self.pop_num(), self.pop_num()) {
+    pub fn evaluate(&mut self) -> Result<()> {
+        let res = match (self.pop_num(), self.pop_num()) {
             (None, None) => Err(Error::NotEnoughElements),
             (Some(_), None)    => Err(Error::NotEnoughElements),
             (None, Some(_))    => Err(Error::NotEnoughElements),
@@ -124,6 +126,14 @@ impl Evaluator {
                     Err(Error::NotEnoughElements)
                 }
             }
+        };
+
+        match res {
+            Ok(val) => {
+                self.push_num(val);
+                Ok(())
+            },
+            Err(e) => Err(e),
         }
     }
 
@@ -150,6 +160,10 @@ impl Evaluator {
     pub fn pop_num(&mut self) -> Option<u8> {
         self.nums.pop()
     }
+
+    pub fn top_num(&self) -> Option<&u8> {
+        self.nums.last()
+    }
 }
 
 fn is_num(c: &char) -> bool {
@@ -165,7 +179,7 @@ fn is_op(c: &char) -> bool {
     false
 }
 
-pub fn evaluate(mut src: impl BufRead) -> Result<u8> {
+pub fn evaluate(src: impl BufRead) -> Result<u8> {
     let mut ev = Evaluator::new();
 
     for buf in src.split(b' ') {
@@ -186,7 +200,12 @@ pub fn evaluate(mut src: impl BufRead) -> Result<u8> {
         }
     }
 
-    ev.evaluate()
+    ev.evaluate()?;
+
+    match ev.top_num() {
+        Some(num) => Ok(*num),
+        None => Err(Error::StackUnderflow)
+    }
 }
 
 #[cfg(test)]
