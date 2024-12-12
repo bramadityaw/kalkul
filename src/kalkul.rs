@@ -94,7 +94,7 @@ const CHAR_OPS : [char; 6] = [
 ];
 
 struct Evaluator {
-    nums: Vec<u8>,
+    nums: Vec<i32>,
     ops: Vec<Op>,
 }
 
@@ -153,21 +153,22 @@ impl Evaluator {
         self.ops.last()
     }
 
-    pub fn push_num(&mut self, n: u8) {
+    pub fn push_num(&mut self, n: i32) {
         self.nums.push(n)
     }
 
-    pub fn pop_num(&mut self) -> Option<u8> {
+    pub fn pop_num(&mut self) -> Option<i32> {
         self.nums.pop()
     }
 
-    pub fn top_num(&self) -> Option<&u8> {
+    pub fn top_num(&self) -> Option<&i32> {
         self.nums.last()
     }
 }
 
-fn is_num(c: &char) -> bool {
-    c.is_digit(10)
+fn is_num(s: &str) -> bool {
+    let cs = s.chars();
+    cs.map(|c| c.is_digit(10)).fold(true, |acc, curr| acc && curr)
 }
 
 fn is_op(c: &char) -> bool {
@@ -179,28 +180,35 @@ fn is_op(c: &char) -> bool {
     false
 }
 
-pub fn evaluate(src: impl BufRead) -> Result<u8> {
+pub fn evaluate(src: impl BufRead) -> Result<i32> {
     let mut ev = Evaluator::new();
 
     for buf in src.split(b' ') {
-        let token = char::from_str(String::from_utf8(buf?.clone())?.trim())?;
+        let t = String::from_utf8(buf?.clone())?;
+        let token = t.trim();
         if is_num(&token) {
-            ev.push_num(token.to_string().parse().unwrap());
+            ev.push_num(token.parse().unwrap());
             println!("{:?}", ev.nums);
             continue;
         }
+        let token = char::from_str(token)?;
         if is_op(&token) {
-            while !ev.ops_empty() {
-                todo!();
-            }
             let op = Op::from_char(&token);
+            while !ev.ops_empty() {
+                if ev.top_op().unwrap().prec < op.prec {
+                    break;
+                }
+                ev.evaluate()?;
+            }
             ev.push_op(op);
             println!("{:?}", ev.ops);
             continue;
         }
     }
 
-    ev.evaluate()?;
+    while !ev.ops_empty() {
+        ev.evaluate()?;
+    }
 
     match ev.top_num() {
         Some(num) => Ok(*num),
@@ -227,8 +235,58 @@ mod test {
         ];
 
         for (expr, ans) in zip(exprs, answers) {
+            println!("-------------------------------");
+            println!("Testing {}", expr);
+            println!("-------------------------------");
             let src = BufReader::new(Cursor::new(expr));
-            assert_eq!(ans, evaluate(src).unwrap());
+            let fin = evaluate(src).unwrap();
+            println!("Final: {} {}", fin, if ans == fin {"PASS"} else {"FAIL"});
+            assert_eq!(ans, fin);
+        }
+    }
+
+    #[test]
+    fn test_multi_op_with_same_prec() {
+        let exprs = [
+            "1 + 1 - 1 + 1 - 1 + 1 - 1 + 1 - 1 + 1 - 1 + 1 - 1 + 1 - 1 + 1 - 1",
+            "2 * 3 / 6 * 2 * 3 / 6 * 2 * 3 / 1",
+        ];
+        let answers = [
+            1, 6,
+        ];
+
+        for (expr, ans) in zip(exprs, answers) {
+            println!("-------------------------------");
+            println!("Testing {}", expr);
+            println!("-------------------------------");
+            let src = BufReader::new(Cursor::new(expr));
+            let fin = evaluate(src).unwrap();
+            println!("Final: {} {}", fin, if ans == fin {"PASS"} else {"FAIL"});
+            assert_eq!(ans, fin);
+        }
+    }
+
+    #[test]
+    fn test_ops_with_diff_prec() {
+        let exprs = [
+            "2 + 2 * 2",
+            "4 * 3 + 2",
+            "8 + 4 / 2",
+            "3 - 2 * 4",
+            "3 * 2 - 4",
+        ];
+        let answers = [
+            6, 14, 10, -5, 2,
+        ];
+
+        for (expr, ans) in zip(exprs, answers) {
+            println!("-------------------------------");
+            println!("Testing {}", expr);
+            println!("-------------------------------");
+            let src = BufReader::new(Cursor::new(expr));
+            let fin = evaluate(src).unwrap();
+            println!("Final: {} {}", fin, if ans == fin {"PASS"} else {"FAIL"});
+            assert_eq!(ans, fin);
         }
     }
 }
