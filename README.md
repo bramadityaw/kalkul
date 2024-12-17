@@ -1,6 +1,8 @@
 # kalkul: An Infix Arithmetic Expression Evaluator
 
-Based on Samuelsen & Bauer's algorithm.
+Based on Samuelsen & Bauer's algorithm described in
+their 1960 paper [Sequential formula translation](https://dl.acm.org/doi/10.1145/366959.366968).
+Inspired by ['How the stack got stacked'](https://www.0de5.net/stimuli/the-development-of-stacks) by Kay Lack of [0de5.net](0de5.net).
 
 # The Algorithm
 This algorithm requires maintaining two stacks: one for numbers,
@@ -20,3 +22,9 @@ and another for operators.
       top of the operator stack
     + Pop the open parenthesis from the operator stack
 - If there are no more tokens to parse, evaluate the remaining operators
+
+# TO DO
+- [x] Evaluate expressions with operators of the same precedence
+- [x] Evaluate expressions with operators of differing precedence
+- [ ] Handle parenthesis
+- [ ] Make an actual lexer instead of just splitting on whitespace
